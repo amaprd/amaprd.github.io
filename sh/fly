@@ -1,0 +1,54 @@
+user_name=$(whoami)
+sub_name=$(hostname | egrep -oe '(sns|oss|passport|credit|godness)')
+sub_sys="amap-aos-${sub_name}"
+
+if [ "x$sub_name" = 'x' ];then
+  cd /home/admin
+  sub_sys=`echo amap-aos-*`
+  sub_name=$(echo ${sub_sys} | egrep -oe '(sns|oss|passport|credit|godness)')
+fi
+
+[ "x$sub_name" = 'x' ] && exit 1
+
+mkdir -p /home/${user_name}/${sub_sys}/{logs/app,target}
+
+mkalias(){
+  grep "cd-${sub_name}" -c ~/.bashrc || echo "alias cd-${sub_name}='cd /home/${user_name}/${sub_sys}/target/${sub_sys}'" >> ~/.bashrc
+  grep "cd-${sub_name}-logs" -c ~/.bashrc|| echo "alias cd-${sub_name}-logs='cd /home/${user_name}/${sub_sys}/logs/app'" >> ~/.bashrc
+  grep "admin-${sub_name}" -c ~/.bashrc || echo "alias admin-${sub_name}='cd /home/admin/${sub_sys}/target/${sub_sys}'" >> ~/.bashrc
+  grep "admin-${sub_name}-logs" -c ~/.bashrc || echo "alias admin-${sub_name}-logs='cd /home/admin/${sub_sys}/logs/app'" >> ~/.bashrc
+  grep "env-del" -c ~/.bashrc || echo "alias env-del='rm -rf ~/${sub_sys}/target' " >> ~/.bashrc
+}
+
+if [ "x$1" = "xmkalias" ];then
+  mkalias
+  exit 0
+fi
+mkalias
+
+cd $HOME
+
+rsync --exclude "core.*" /home/admin/${sub_sys}/target/${sub_sys} ${sub_sys}/target/ -rlk
+rsync /home/admin/${sub_sys}/virtualenv ${sub_sys}/ -rlk
+
+
+cd /home/${user_name}/${sub_sys}/target/${sub_sys}/
+sed "s/home\/admin/home\/${user_name}/g;/dsn/d" -i ${sub_name}/settings.py
+
+grep -c activate ~/.bashrc || echo "source ~/${sub_sys}/virtualenv/bin/activate" >> ~/.bashrc
+
+cd /home/${user_name}/${sub_sys}/virtualenv
+sed "s/admin/${user_name}/g" -i bin/activate
+sed "s/admin/${user_name}/g" -i bin/pip
+cp bin/python2.7 bin/python 2>/dev/null
+
+install_tools(){
+  mkdir -p ~/bin
+  grep 'export PATH=$PATH:~/bin/' -c || echo 'export PATH=$PATH:~/bin/' >> ~/.bashrc
+  wget -c 'http://amaprd.github.io/bin/redis-cli' -O ~/bin/redis-cli
+  chmod 755 ~/bin/redis-cli
+}
+# 安装 redis-cli
+
+exec `echo $SHELL`
+echo "build v-env success, enjoy it ~"
